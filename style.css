@@ -1,0 +1,92 @@
+html, body {
+	padding: 0;
+	margin: 0;
+	font-family: sans-serif;
+	background-color: #111111;
+	color: #E8E8E8;
+}
+
+body {
+	max-width: 1080px;
+	margin: 0 auto;
+	background-color: #222222;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+a {
+	text-decoration: none;
+	color: #E8E8E8;
+	font-weight: bold;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+table {
+	border-collapse: collapse;
+	margin: auto;
+}
+
+thead {
+	border-bottom: 2px solid #C7C7C7;
+}
+
+td {
+	text-align: center;
+	padding: 4px 8px;
+}
+
+td.note {
+	text-align: left;
+	border-bottom: 2px solid #C7C7C7;
+	padding: 8px 24px;
+}
+
+td.note pre {
+	padding: 8px;
+	border: 1px solid #111111;
+	background-color: #FFFFFF;
+	color: #070707;
+}
+
+#content {
+	overflow: hidden;
+	padding: 8px;
+}
+
+.gh-user {
+	display: block;
+	float: left;
+	margin: 4px;
+	background-color: #444444;
+	overflow: hidden;
+}
+
+.gh-user img {
+	display: inline;
+	width: 24px;
+	height: 24px;
+	margin: 2px;
+	vertical-align: middle;
+}
+
+.gh-user .gh-user-link {
+	display: inline;
+	margin: 4px 8px;
+}
+
+.gh-user-list {
+	display: block;
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+.gh-user-list li {
+	display: block;
+	float: left;
+}
