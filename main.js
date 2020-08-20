@@ -1,3 +1,17 @@
+const unit = x => [x];
+const pipe = fns => {
+	var fn = x => x;
+	fns.forEach(f => {
+		const old_fn = fn;
+		fn = (x) => f(old_fn(x));
+	});
+	return fn;
+}
+
+Array.prototype.pipeMap = function (fns) {
+	return this.map(pipe(fns));
+}
+
 // HTML module builder
 const Html = () => {
 	const node_names = [
@@ -18,61 +32,42 @@ const Html = () => {
 		return element;
 	};
 
-	var nodes = {
+	var h = {
 		"text": text => document.createTextNode(text.toString()),
+		"simple_table": (columns, rows) => h.table([
+			h.thead([h.tr(columns.pipeMap([h.text, unit, h.th]))]),
+			h.tbody(rows.map(h.tr)),
+		]),
+		"simple_link": (inner, href, class_name = undefined) => h.a(
+			[h.text(inner)],
+			{
+				"class": class_name,
+				"href": href,
+				"target": "_blank",
+			},
+		)
 	};
 
 	node_names.forEach(name => {
-		nodes[name] = node(name);
+		h[name] = node(name);
 	})
 
-	return nodes;
+	return h;
 }
 const h = Html();
-
-const table = (columns, rows) => {
-	var header = [];
-	columns.forEach(title => {
-		header.push(h.th([h.text(title)]));
-	});
-
-	var body = [];
-	rows.forEach(row => {
-		body.push(h.tr(row));
-	});
-
-	return h.table([
-		h.thead([h.tr(header)]),
-		h.tbody(body),
-	]);
-}
 
 const gh_user = user => h.div(
 	[
 		h.img([], { "src": user.avatar_url, "alt": user.login }),
-		h.a(
-			[h.text(user.login)],
-			{
-				"class": "gh-user-link",
-				"href": user.html_url,
-				"target": "_blank",
-			},
-		),
+		h.simple_link(user.login, user.html_url, "gh-user-link")
 	],
 	{ "class": "gh-user" },
 );
 
-const gh_user_list = users => {
-	var ul = [];
-	users.forEach(user => {
-		ul.push(h.li([gh_user(user)]));
-	});
-
-	return h.ul(
-		ul,
-		{ "class": "gh-user-list" },
-	);
-};
+const gh_user_list = users => h.ul(
+	users.pipeMap([gh_user, unit, h.li]),
+	{ "class": "gh-user-list" },
+);
 
 // Github query module
 const GitHub = () => {
@@ -91,7 +86,6 @@ const GitHub = () => {
 			url = url.slice(0, split);
 
 			if (context.hasOwnProperty(var_name)) {
-				console.log("woot");
 				url = url + "/" + context[var_name].toString();
 			}
 		}
@@ -155,11 +149,6 @@ const GitHub = () => {
 }
 const gh = GitHub();
 
-/// Set the body of the HTML document
-const setBody = body => {
-	document.body = h.body([body]);
-}
-
 /// Create an initial repo block
 const repo_block = repo => {
 	var info = h.div([], { "class": "info" });
@@ -173,66 +162,48 @@ const repo_block = repo => {
 	const reloadBlock = async () => {
 		block.removeChild(info);
 
-		const pulls = await gh.pulls(repo);
-		var pull_table = [];
-		pulls.forEach(pull => {
-			pull_table.push([
-				h.td([h.a(
-					[h.text(`#${pull.number}`)],
-					{ "href": pull.html_url, "target": "_blank" },
-				)]),
-				h.td([h.a(
-					[h.text(pull.title)],
-					{ "href": pull.html_url, "target": "_blank" },
-				)]),
-				// h.td([h.kbd([h.text(pull.base.label)])]),
-				// h.td([h.kbd([h.text(pull.head.label)])]),
-				h.td([gh_user(pull.user)]),
-				h.td([gh_user_list(pull.requested_reviewers)]),
-				h.td([gh_user_list(pull.assignees)]),
-			]);
-			pull_table.push([
-				h.td([
-					h.pre([h.text(pull.body)]),
-				], { "colspan": 5, "class": "note" }),
-			]);
-		})
+		const pull_heading = [
+			"Number", "Name", "Author", "Reviewer(s)", "Assignee(s)",
+		];
+		const pull_table = (await gh.pulls(repo)).flatMap(pull => [
+			[
+				h.simple_link(`#${pull.number}`, pull.html_url),
+				h.simple_link(pull.title, pull.html_url),
+				gh_user(pull.user),
+				gh_user_list(pull.requested_reviewers),
+				gh_user_list(pull.assignees),
+			].pipeMap([unit, h.td]),
+			[
+				h.td(
+					[h.pre([h.text(pull.body)])],
+					{ "colspan": 5, "class": "note" },
+				),
+			],
+		]);
 
-		const issues = await gh.issues(repo);
-		var issue_table = [];
-		issues.forEach(issue => {
-			issue_table.push([
-				h.td([h.a(
-					[h.text(`#${issue.number}`)],
-					{ "href": issue.html_url, "target": "_blank" },
-				)]),
-				h.td([h.a(
-					[h.text(issue.title)],
-					{ "href": issue.html_url, "target": "_blank" },
-				)]),
-				h.td([gh_user(issue.user)]),
-				h.td([gh_user_list(issue.assignees)]),
-			]);
-			issue_table.push([
-				h.td([
-					h.pre([h.text(issue.body)]),
-				], { "colspan": 4, "class": "note" }),
-			]);
-		})
+		const issue_heading = [
+			"Number", "Name", "Author", "Assignee(s)",
+		];
+		const issue_table = (await gh.issues(repo)).flatMap(issue => [
+			[
+				h.simple_link(`#${issue.number}`, issue.html_url),
+				h.simple_link(issue.title, issue.html_url),
+				gh_user(issue.user),
+				gh_user_list(issue.assignees),
+			].pipeMap([unit, h.td]),
+			[
+				h.td(
+					[h.pre([h.text(issue.body)])],
+					{ "colspan": 4, "class": "note" },
+				),
+			],
+		]);
 
 		info = h.div([
 			h.h3([h.text("Pull Requests")]),
-			table(
-				["Number", "Name", /* "Base", "Head" */, "Author", "Reviewer(s)", "Assignee(s)" ],
-				// Title and body use a full row
-				pull_table,
-			),
+			h.simple_table(pull_heading, pull_table),
 			h.h3([h.text("Issues")]),
-			table(
-				["Number", "Name", "Author", "Assignee(s)" ],
-				// Title and body use a full row
-				issue_table,
-			),
+			h.simple_table(issue_heading, issue_table),
 		], { "class": "info" });
 		block.appendChild(info);
 
@@ -245,15 +216,10 @@ const repo_block = repo => {
 
 /// Load the initial page
 const main = async () => {
-	const gh_repos = [
+	const repos = [
 		await gh.org_repos("seL4"),
 		await gh.org_repos("seL4proj"),
-	].flat();
-
-	var repos = []
-	gh_repos.forEach(repo => {
-		repos.push(repo_block(repo));
-	});
+	];
 
 	var remaining = h.kbd([h.text("??")]);
 	var reset = h.kbd([h.text("??")]);
@@ -279,10 +245,13 @@ const main = async () => {
 			reset,
 			h.text("."),
 		]),
-		h.div(repos, { "class": "repos" }),
+		h.div(
+			repos.flat().map(repo_block),
+			{ "class": "repos" },
+		),
 	], {"id": "content"})
 
-	setBody(doc);
+	document.body = h.body([doc]);
 }
 
 // Execute main after the DOM is loaded
