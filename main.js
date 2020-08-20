@@ -255,14 +255,10 @@ const main = async () => {
 	const reset = h.replaceable(h.text("??"));
 	const check_limit = async () => {
 		const limit = await gh.rate_limit();
-		remaining.replace(h.text(limit.resources.core.remaining));
-		reset.replace(h.text(
-			new Date(limit.resources.core.reset * 1000)
-		));
+		const core = limit.resources.core;
+		remaining.replace(h.text(`${core.remaining}/${core.limit}`));
+		reset.replace(h.text(new Date(core.reset * 1000)));
 	}
-
-	await check_limit();
-	gh.set_hook(check_limit);
 
 	const doc = h.div([
 		h.h1("GitHub PRs and Issues"),
@@ -279,7 +275,10 @@ const main = async () => {
 		),
 	], {"id": "content"})
 
-	document.body = h.body([doc]);
+	await check_limit();
+	gh.set_hook(check_limit);
+
+	document.body = h.body(doc);
 }
 
 // Execute main after the DOM is loaded
