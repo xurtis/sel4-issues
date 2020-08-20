@@ -14,7 +14,7 @@ Array.prototype.pipeMap = function (fns) {
 // HTML module builder
 const Html = () => {
 	// Function for creating a HTML node
-	const node = name => (children, attributes = {}) => {
+	const node = name => (children = [], attributes = {}) => {
 		var element = document.createElement(name);
 		for (attribute in attributes) {
 			element.setAttribute(attribute, attributes[attribute]);
@@ -52,7 +52,17 @@ const Html = () => {
 				"href": href,
 				"target": "_blank",
 			},
-		)
+		),
+		"replaceable": node => {
+			var current = node;
+			const replace = new_node => {
+				current.replaceWith(new_node);
+				current = new_node;
+				current.replace = replace;
+			}
+			current.replace = replace;
+			return current;
+		}
 	};
 
 	// Shim to generate HTML nodes when they don't overlap with a
@@ -167,9 +177,9 @@ const gh = GitHub();
 
 /// Create an initial repo block
 const repo_block = repo => {
-	var info = h.div([], { "class": "info" });
-	var header = h.h2(repo.full_name);
-	var block = h.div([
+	const info = h.replaceable(h.div([], { "class": "info" }));
+	const header = h.h2(repo.full_name);
+	const block = h.div([
 		header,
 		info,
 	], { "class": "repo" });
@@ -216,14 +226,15 @@ const repo_block = repo => {
 		);
 
 		// Update the info block
-		block.removeChild(info);
-		info = h.div([
-			h.h3("Pull Requests"),
-			pulls,
-			h.h3("Issues"),
-			issues,
-		], { "class": "info" });
-		block.appendChild(info);
+		info.replace(h.div(
+			[
+				h.h3("Pull Requests"),
+				pulls,
+				h.h3("Issues"),
+				issues,
+			],
+			{ "class": "info" },
+		));
 
 		// Schedule another update for an hour from now
 		setTimeout(60 * 60 * 1000, reloadBlock);
@@ -240,15 +251,13 @@ const main = async () => {
 		await gh.org_repos("seL4proj"),
 	];
 
-	var remaining = h.kbd("??");
-	var reset = h.kbd("??");
+	const remaining = h.replaceable(h.text("??"));
+	const reset = h.replaceable(h.text("??"));
 	const check_limit = async () => {
 		const limit = await gh.rate_limit();
-		remaining.removeChild(remaining.firstChild);
-		remaining.appendChild(h.text(limit.resources.core.remaining));
-		reset.removeChild(reset.firstChild);
-		reset.appendChild(h.text(
-			new Date(limit.resources.core.reset * 1000),
+		remaining.replace(h.text(limit.resources.core.remaining));
+		reset.replace(h.text(
+			new Date(limit.resources.core.reset * 1000)
 		));
 	}
 
@@ -259,9 +268,9 @@ const main = async () => {
 		h.h1("GitHub PRs and Issues"),
 		h.p([
 			h.text("You have "),
-			remaining,
+			h.kbd(remaining),
 			h.text(" requests remaining which will reset at "),
-			reset,
+			h.kbd(reset),
 			h.text("."),
 		]),
 		h.div(
